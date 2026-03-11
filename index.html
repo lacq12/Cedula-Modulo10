@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Validador de Cédula (Módulo 10)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Valida cédulas dominicanas (11 dígitos) con el algoritmo Módulo 10 (Luhn), 100% en el navegador." />
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100dvh; display: grid; place-items: center;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      background: #f6f7fb;
+    }
+    main {
+      width: min(680px, 92vw);
+      background: #fff;
+      border-radius: 18px;
+      padding: 2rem;
+      box-shadow: 0 18px 40px rgba(0,0,0,.08);
+    }
+    h1 { margin: 0 0 .5rem; font-size: clamp(1.2rem, 2.4vw, 1.6rem); }
+    p.hint { color: #6b7280; margin: .25rem 0 1rem; }
+    form { display: grid; gap: .8rem; margin-top: .75rem; }
+    label { font-weight: 600; }
+    .row { display: grid; gap: .75rem; grid-template-columns: 1fr auto; align-items: center; }
+    input[type="text"] {
+      padding: .9rem 1rem; border: 1px solid #d0d5dd; border-radius: 12px; font-size: 1rem;
+    }
+    button {
+      background: #2563eb; color: #fff; border: 0; padding: .9rem 1.1rem;
+      border-radius: 12px; font-weight: 700; cursor: pointer;
+    }
+    button.secondary { background: #0f172a; }
+    .result { margin-top: 1rem; display: none; }
+    .ok, .bad {
+      padding: .7rem .9rem; border-radius: 12px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: .6rem;
+    }
+    .ok { color: #065f46; background: #d1fae5; }
+    .bad { color: #7f1d1d; background: #fee2e2; }
+    .muted { color: #6b7280; font-size: .95rem; margin-top: .4rem; }
+    footer { margin-top: 1.25rem; color: #6b7280; font-size: .9rem; }
+    code { background: #f3f4f6; padding: .1rem .35rem; border-radius: 6px; }
+    .tips { margin-top: 1rem; color: #475569; font-size: .95rem; }
+    .tips li { margin: .3rem 0; }
+    @media (max-width: 560px) {
+      .row { grid-template-columns: 1fr; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Validador de Cédula (Módulo 10)</h1>
+      <p class="hint">
+        Ingresa una cédula de <strong>11 dígitos</strong>. Puedes usar guiones (ej.: <code>001-1234567-8</code>).
+        Esta verificación es <em>estructural</em> (dígito verificador): no comprueba la existencia del titular.
+      </p>
+    </header>
+
+    <form id="form">
+      <label for="cedula">Cédula</label>
+      <div class="row">
+        <input id="cedula" name="cedula" type="text" inputmode="numeric" autocomplete="off"
+               aria-describedby="help"
+               />
+        <button type="submit" title="Validar">Validar</button>
+      </div>
+      <div class="row" style="margin-top:.25rem;">
+        <button id="btnLimpiar" type="button" class="secondary" title="Limpiar">Limpiar</button>
+      </div>
+    </form>
+
+    <section class="result" id="result">
+      <p id="msg" class="ok">CÉDULA ES CORRECTA</p>
+      <p class="muted">Ingresaste: <code id="ingresada"></code></p>
+    </section>
+    <footer>
+      <p>© 2026 •Esta pagina valida solamente la estructura de una cedula Basado en el algoritmo de Luhn (también llamado “módulo 10”). </p>
+    </footer>
+  </main>
+
+  <script>
+    // --- Utilidades ---
+    const onlyDigits = s => (s || "").replace(/\D+/g, "");
+
+    // Enmascarado opcional: ###-#######-#
+    function formatCedula(s) {
+      const d = onlyDigits(s).slice(0, 11);
+      if (!d) return "";
+      if (d.length <= 3) return d;
+      if (d.length <= 10) return d.slice(0,3) + "-" + d.slice(3);
+      return d.slice(0,3) + "-" + d.slice(3,10) + "-" + d.slice(10);
+    }
+
+    // Algoritmo Módulo 10 / Luhn para 11 dígitos
+    function validarModulo10Cedula(input) {
+      const digits = onlyDigits(input);
+      if (digits.length !== 11) return false;
+
+      // Sumatoria Luhn sobre los primeros 10 dígitos (penúltimo hacia la izquierda)
+      let sum = 0;
+      let doble = true; // arrancamos duplicando el penúltimo
+      for (let i = digits.length - 2; i >= 0; i--) {
+        let d = digits.charCodeAt(i) - 48; // '0' = 48
+        if (doble) {
+          d *= 2;
+          if (d > 9) d -= 9;
+        }
+        sum += d;
+        doble = !doble;
+      }
+      const check = (10 - (sum % 10)) % 10;
+      const last = digits.charCodeAt(10) - 48;
+      return check === last;
+    }
+
+    // --- Interacción UI ---
+    const $cedula = document.getElementById("cedula");
+    const $form   = document.getElementById("form");
+    const $result = document.getElementById("result");
+    const $msg    = document.getElementById("msg");
+    const $ing    = document.getElementById("ingresada");
+    const $btnLimpiar = document.getElementById("btnLimpiar");
+
+    // Enmascarar mientras escribe
+    $cedula.addEventListener("input", (e) => {
+      const pos = e.target.selectionStart;
+      const before = e.target.value;
+      e.target.value = formatCedula(before);
+      // No complicamos caret; el input es corto
+    });
+
+    $form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const valor = $cedula.value.trim();
+      const valida = validarModulo10Cedula(valor);
+
+      $msg.textContent = valida ? "CÉDULA ES CORRECTA" : "CÉDULA ES INCORRECTA";
+      $msg.className = valida ? "ok" : "bad";
+      $ing.textContent = valor || "—";
+      $result.style.display = "block";
+    });
+
+    $btnLimpiar.addEventListener("click", () => {
+      $cedula.value = "";
+      $result.style.display = "none";
+      $cedula.focus();
+    });
+  </script>
+</body>
+</html>
